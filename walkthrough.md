@@ -20,3 +20,9 @@ Chronological log of significant changes. Oldest → newest. Format per entry:
 - Findings: The first CI run emitted annotations that `actions/checkout@v4` and `actions/setup-go@v5` target the deprecated Node.js 20 (forced onto Node 24). `release.yml` also pinned older majors (`checkout@v4`, `setup-go@v5`, `softprops/action-gh-release@v1`, and `docker/*` at v3–v5).
 - Conclusions: Bumped every action in both workflows to its current major, after verifying via the GitHub API that each major tag exists. Moving major tags (e.g. `@v7`) were chosen over pinned patch versions to match the existing convention and keep future updates simple.
 - Actions: `.github/workflows/ci.yml` — checkout v4→v7, setup-go v5→v7. `.github/workflows/release.yml` — checkout v4→v7, setup-go v5→v7, action-gh-release v1→v3, setup-qemu v3→v4, setup-buildx v3→v4, login v3→v4, metadata v5→v6, build-push v5→v7. The `ci.yml` bumps are validated by the CI run triggered on this push; `release.yml` only runs on a published release, so its bumps are not exercised until then.
+
+## 2026-10-07 (Apply gofmt and add a formatting gate)
+
+- Findings: `gofmt -l .` flagged 12 files as not gofmt-clean, including `cmd/cli/main.go`, several `internal/brain/*` files and the new `internal/webui/webui.go`. This confirmed the tree was not consistently formatted — the reason the formatter gate was deliberately left out of the initial CI workflow.
+- Conclusions: Ran `gofmt -w .` across the repo and added a blocking `gofmt -l` check to `ci.yml`, so formatting is now enforced going forward. Kept as a separate branch/PR because the diff is purely mechanical and is easier to review in isolation from functional changes.
+- Actions: Formatted 12 files (indentation/alignment only, no logic changes — verified with `go build ./...`, `go vet ./...` and `go test ./...`, all passing on Go 1.27.1). Added a "Check formatting (gofmt)" step to `.github/workflows/ci.yml`.

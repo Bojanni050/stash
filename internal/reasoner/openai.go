@@ -394,10 +394,10 @@ Rules:
 			}
 
 			validated = append(validated, &StructuredPattern{
-				Content:       jp.Pattern,
+				Content:        jp.Pattern,
 				CoherenceScore: coherence,
-				SourceFactIDs: validFacts,
-				SourceRelIDs:  validRels,
+				SourceFactIDs:  validFacts,
+				SourceRelIDs:   validRels,
 			})
 		}
 
