@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alash3al/stash/internal/webui"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/urfave/cli/v3"
@@ -38,6 +39,8 @@ func serveHTTP(ctx context.Context, cmd *cli.Command) error {
 	addr := net.JoinHostPort(host, port)
 
 	mux := http.NewServeMux()
+	ui := &webui.Handler{Brain: bc.Brain}
+	ui.Register(mux)
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if err := bc.Brain.Health(r.Context()); err != nil {
@@ -62,7 +65,7 @@ func serveHTTP(ctx context.Context, cmd *cli.Command) error {
 	defer cancel()
 
 	go func() {
-		log.Printf("metrics server listening on %s", addr)
+		log.Printf("http server listening on %s (dashboard: http://%s/ui)", addr, addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Printf("metrics server error: %v", err)
 		}

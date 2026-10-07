@@ -21,6 +21,16 @@ Quick check (expects HTTP 200 or SSE handshake):
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/sse
 ```
 
+## 1b. Open the dashboard (optional)
+
+The HTTP server on port **9090** also serves a web dashboard:
+
+```
+http://localhost:9090/ui
+```
+
+From there you can browse namespaces, run semantic recall, inspect facts, goals, hypotheses, contradictions, failures, and causal links — and manage them directly.
+
 ## 2. Connect your MCP client
 
 Point any MCP-over-SSE client at `http://localhost:8080/sse`.

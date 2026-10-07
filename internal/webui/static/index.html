@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stash Dashboard</title>
+<style>
+:root {
+  --bg: #0d1117; --panel: #161b22; --border: #30363d; --fg: #e6edf3;
+  --muted: #8b949e; --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--fg); }
+header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+header h1 { font-size: 18px; margin: 0; }
+header h1 span { color: var(--accent); }
+#ns-select { background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; max-width: 320px; }
+nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+nav button { background: none; border: 1px solid transparent; color: var(--muted); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+nav button.active { background: var(--bg); color: var(--fg); border-color: var(--border); }
+nav button:hover { color: var(--fg); }
+main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+.toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.toolbar input, .toolbar select { background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; }
+.toolbar input { flex: 1; min-width: 200px; }
+.toolbar button { background: #21262d; color: var(--fg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 14px; cursor: pointer; }
+.toolbar button.primary { background: #1f6feb; border-color: #1f6feb; }
+.toolbar button:hover { filter: brightness(1.15); }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+tr:last-child td { border-bottom: none; }
+td.wrap { max-width: 420px; white-space: pre-wrap; word-break: break-word; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+.badge.active { background: rgba(63,185,80,.15); color: var(--green); }
+.badge.completed { background: rgba(88,166,255,.15); color: var(--accent); }
+.badge.abandoned { background: rgba(248,81,73,.15); color: var(--red); }
+.badge.pending { background: rgba(210,153,34,.15); color: var(--yellow); }
+.badge.confirmed { background: rgba(63,185,80,.15); color: var(--green); }
+.badge.rejected { background: rgba(248,81,73,.15); color: var(--red); }
+.muted { color: var(--muted); font-size: 12px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+.card h3 { margin: 0 0 8px; font-size: 15px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.stat { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.stat .num { font-size: 26px; font-weight: 700; color: var(--accent); }
+.stat .lbl { color: var(--muted); font-size: 12px; }
+.row-actions button { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 5px; padding: 3px 8px; margin-right: 4px; cursor: pointer; font-size: 12px; }
+.row-actions button:hover { color: var(--fg); }
+dialog { background: var(--panel); color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; max-width: 440px; width: 90%; }
+dialog::backdrop { background: rgba(0,0,0,.6); }
+dialog h3 { margin-top: 0; }
+dialog label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+dialog input, dialog textarea, dialog select { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-family: inherit; }
+dialog textarea { min-height: 70px; resize: vertical; }
+dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+#toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 18px; border-radius: 8px; background: #21262d; border: 1px solid var(--border); display: none; z-index: 100; max-width: 380px; }
+#toast.err { border-color: var(--red); }
+.empty { padding: 32px; text-align: center; color: var(--muted); }
+#loading { padding: 32px; text-align: center; color: var(--muted); display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧠 Stash <span>Dashboard</span></h1>
+  <select id="ns-select" onchange="state.ns=this.value;refresh()"></select>
+  <nav id="nav"></nav>
+</header>
+<main>
+  <div id="loading">loading…</div>
+  <div id="content"></div>
+</main>
+<dialog id="dlg"></dialog>
+<div id="toast"></div>
+<script>
+const API = '/api/v1';
+const state = { tab: 'overview', ns: '', nsMap: {} };
+
+const tabs = [
+  ['overview', 'Overview'], ['recall', 'Recall'], ['facts', 'Facts'],
+  ['goals', 'Goals'], ['hypotheses', 'Hypotheses'], ['contradictions', 'Contradictions'],
+  ['failures', 'Failures'], ['links', 'Causal Links'], ['namespaces', 'Namespaces'],
+];
+const nav = document.getElementById('nav');
+tabs.forEach(([id, label]) => {
+  const b = document.createElement('button');
+  b.textContent = label; b.dataset.tab = id;
+  b.onclick = () => { state.tab = id; refresh(); };
+  nav.appendChild(b);
+});
+
+function toast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = err ? 'err' : ''; t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 3500);
+}
+
+async function api(path, opts) {
+  const res = await fetch(API + path, opts && Object.assign(opts, {
+    headers: Object.assign({'Content-Type': 'application/json'}, (opts && opts.headers) || {})
+  }));
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || res.statusText);
+  return body;
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function ts(s) { return s ? new Date(s).toLocaleString() : ''; }
+function nsSlug(id) { return state.nsMap[id] || ('#' + id); }
+
+async function loadNamespaces() {
+  const list = await api('/namespaces?limit=1000');
+  const sel = document.getElementById('ns-select');
+  sel.innerHTML = '<option value="/">All namespaces (/)</option>' +
+    list.map(n => `<option value="${esc(n.slug)}">${esc(n.slug)}</option>`).join('');
+  if (state.ns) sel.value = state.ns;
+  list.forEach(n => state.nsMap[n.id] = n.slug);
+  state.ns = sel.value;
+}
+
+function toolbar(html) { return `<div class="toolbar">${html}</div>`; }
+function table(headers, rows) {
+  if (!rows.length) return '<div class="empty">No results</div>';
+  return `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+
+function badge(v) { return v ? `<span class="badge ${esc(v)}">${esc(v)}</span>` : ''; }
+
+async function renderOverview() {
+  const ns = encodeURIComponent(state.ns);
+  const [facts, goals, hyps, cons, fails] = await Promise.all([
+    api(`/facts?namespaces=${ns}&limit=1000`), api(`/goals?namespaces=${ns}&limit=1000`),
+    api(`/hypotheses?namespaces=${ns}&limit=1000`), api(`/contradictions?namespaces=${ns}&limit=1000`),
+    api(`/failures?namespaces=${ns}&limit=1000`),
+  ]).catch(() => { throw new Error('failed to load overview'); });
+  const activeGoals = goals.filter(g => g.status === 'active').length;
+  const openCons = cons.length;
+  document.getElementById('content').innerHTML = `
+    <div class="stats">
+      <div class="stat"><div class="num">${facts.total}</div><div class="lbl">Facts</div></div>
+      <div class="stat"><div class="num">${activeGoals}</div><div class="lbl">Active goals</div></div>
+      <div class="stat"><div class="num">${hyps.filter(h => h.status === 'pending').length}</div><div class="lbl">Pending hypotheses</div></div>
+      <div class="stat"><div class="num">${openCons}</div><div class="lbl">Unresolved contradictions</div></div>
+      <div class="stat"><div class="num">${fails.length}</div><div class="lbl">Failures</div></div>
+    </div>
+    <div class="card"><h3>Recent facts</h3>${table(['Content', 'Confidence', 'Created'], facts.items.slice(0, 10).map(f => `<tr><td class="wrap">${esc(f.content)}</td><td>${(f.confidence * 100).toFixed(0)}%</td><td class="muted">${ts(f.created_at)}</td></tr>`))}</div>`;
+}
+
+async function renderRecall() {
+  document.getElementById('content').innerHTML = toolbar(
+    `<input id="q" placeholder="Semantic search across episodes and facts…">` +
+    `<button class="primary" onclick="doRecall()">Recall</button>`
+  );
+  document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') doRecall(); });
+}
+async function doRecall() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  const res = await api('/recall', { method: 'POST', body: JSON.stringify({ query: q, namespaces: [state.ns], limit: 20 }) });
+  const html = table(['Type', 'Content', 'Score', 'When'], res.results.map(r => [
+    `<td>${esc(r.type)}</td>`, `<td class="wrap">${esc(r.content)}</td>`,
+    `<td>${(r.score * 100).toFixed(0)}%</td>`, `<td class="muted">${ts(r.occurred_at || r.created_at)}</td>`
+  ].join('')));
+  const out = document.createElement('div'); out.innerHTML = html;
+  const oldOut = document.getElementById('recall-out');
+  if (oldOut) oldOut.remove();
+  out.id = 'recall-out';
+  document.querySelector('.toolbar').after(out);
+  out.id = 'recall-out';
+  const old = document.getElementById('recall-out');
+  if (old && old !== out) old.remove();
+}
+
+async function renderFacts() {
+  const ns = encodeURIComponent(state.ns);
+  const res = await api(`/facts?namespaces=${ns}&limit=100`);
+  document.getElementById('content').innerHTML = table(
+    ['Content', 'Entity', 'Property', 'Value', 'Conf.', 'Created', ''],
+    res.items.map(f => `<tr>
+      <td class="wrap">${esc(f.content)}</td>
+      <td>${esc(f.entity)}</td><td>${esc(f.property)}</td><td>${esc(f.value)}</td>
+      <td>${(f.confidence * 100).toFixed(0)}%</td>
+      <td class="muted">${ts(f.created_at)}</td>
+      <td class="row-actions"><button onclick="purge('facts', ${f.id})">purge</button></td>
+    </tr>`)
+  );
+}
+
+async function renderGoals() {
+  const ns = encodeURIComponent(state.ns);
+  const res = await api(`/goals?namespaces=${ns}&limit=1000`);
+  document.getElementById('content').innerHTML = toolbar(
+    `<button class="primary" onclick="goalDialog()">+ New goal</button>`) +
+    table(['Content', 'Status', 'Priority', 'Created', ''],
+      res.items.map(g => `<tr>
+        <td class="wrap">${esc(g.content)}</td>
+        <td>${badge(g.status)}</td>
+        <td>${g.priority}</td>
+        <td class="muted">${ts(g.created_at)}</td>
+        <td class="row-actions">
+          <button onclick="goalComplete(${g.id})">complete</button>
+          <button onclick="goalAbandon(${g.id})">abandon</button>
+          <button onclick="del('goals', ${g.id})">delete</button>
+        </td>
+      </tr>`));
+}
+async function goalDialog() {
+  const d = document.getElementById('dlg');
+  d.innerHTML = `<h3>New goal</h3>
+    <label>Content</label><textarea id="g-content"></textarea>
+    <label>Priority (0-10)</label><input id="g-priority" type="number" value="5">
+    <div class="actions"><button onclick="dlgClose()">Cancel</button><button class="primary" onclick="goalCreate()">Create</button></div>`;
+  d.showModal();
+}
+async function goalCreate() {
+  await api('/goals', { method: 'POST', body: JSON.stringify({
+    namespaces: [state.ns], content: document.getElementById('g-content').value,
+    priority: parseInt(document.getElementById('g-priority').value || '5', 10) }) });
+  dlgClose(); refresh(); toast('Goal created');
+}
+async function goalComplete(id) {
+  await api(`/goals/${id}/complete`, { method: 'POST', body: JSON.stringify({ notes: 'completed via UI' }) });
+  refresh(); toast('Goal completed');
+}
+async function goalAbandon(id) {
+  await api(`/goals/${id}/abandon`, { method: 'POST', body: JSON.stringify({ notes: 'abandoned via UI' }) });
+  refresh(); toast('Goal abandoned');
+}
+
+async function renderHypotheses() {
+  const ns = encodeURIComponent(state.ns);
+  const res = await api(`/hypotheses?namespaces=${ns}&limit=1000`);
+  document.getElementById('content').innerHTML = table(
+    ['Content', 'Status', 'Conf.', 'Plan', 'Updated', ''],
+    res.items.map(h => `<tr>
+      <td class="wrap">${esc(h.content)}</td>
+      <td>${badge(h.status)}</td>
+      <td>${(h.confidence * 100).toFixed(0)}%</td>
+      <td class="wrap muted">${esc(h.verification_plan)}</td>
+      <td class="muted">${ts(h.updated_at)}</td>
+      <td class="row-actions">
+        <button onclick="hypoConfirm(${h.id})">confirm</button>
+        <button onclick="hypoReject(${h.id})">reject</button>
+        <button onclick="del('hypotheses', ${h.id})">delete</button>
+      </td>
+    </tr>`));
+}
+async function hypoConfirm(id) {
+  await api(`/hypotheses/${id}/confirm`, { method: 'POST', body: '{}' }); refresh(); toast('Hypothesis confirmed');
+}
+async function hypoReject(id) {
+  const reason = prompt('Rejection reason:') || 'rejected via UI';
+  await api(`/hypotheses/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
+  refresh(); toast('Hypothesis rejected');
+}
+
+async function renderContradictions() {
+  const ns = encodeURIComponent(state.ns);
+  const res = await api(`/contradictions?namespaces=${ns}&limit=1000`);
+  document.getElementById('content').innerHTML = table(
+    ['Entity', 'Property', 'Old value', 'New value', 'Conf.', 'Created', ''],
+    res.items.map(c => `<tr>
+      <td>${esc(c.entity)}</td><td>${esc(c.property)}</td>
+      <td class="wrap">${esc(c.old_value)}</td><td class="wrap">${esc(c.new_value)}</td>
+      <td>${(c.confidence * 100).toFixed(0)}%</td>
+      <td class="muted">${ts(c.created_at)}</td>
+      <td class="row-actions"><button onclick="conResolve(${c.id})">resolve</button></td>
+    </tr>`));
+}
+async function conResolve(id) {
+  const resolution = prompt('Resolution note:') || 'resolved via UI';
+  await api(`/contradictions/${id}/resolve`, { method: 'POST', body: JSON.stringify({ resolution }) });
+  refresh(); toast('Contradiction resolved');
+}
+
+async function renderFailures() {
+  const ns = encodeURIComponent(state.ns);
+  const res = await api(`/failures?namespaces=${ns}&limit=1000`);
+  document.getElementById('content').innerHTML = toolbar(
+    `<button class="primary" onclick="failDialog()">+ Record failure</button>`) +
+    table(['What failed', 'Why', 'Lesson', 'Created', ''],
+      res.items.map(f => `<tr>
+        <td class="wrap">${esc(f.content)}</td>
+        <td class="wrap">${esc(f.reason)}</td>
+        <td class="wrap">${esc(f.lesson)}</td>
+        <td class="muted">${ts(f.created_at)}</td>
+        <td class="row-actions"><button onclick="del('failures', ${f.id})">delete</button></td>
+      </tr>`));
+}
+async function failDialog() {
+  const d = document.getElementById('dlg');
+  d.innerHTML = `<h3>Record failure</h3>
+    <label>What failed</label><textarea id="f-content"></textarea>
+    <label>Why</label><textarea id="f-reason"></textarea>
+    <label>Lesson</label><textarea id="f-lesson"></textarea>
+    <div class="actions"><button onclick="dlgClose()">Cancel</button><button class="primary" onclick="failCreate()">Save</button></div>`;
+  d.showModal();
+}
+async function failCreate() {
+  await api('/failures', { method: 'POST', body: JSON.stringify({
+    namespaces: [state.ns],
+    content: document.getElementById('f-content').value,
+    reason: document.getElementById('f-reason').value,
+    lesson: document.getElementById('f-lesson').value }) });
+  dlgClose(); refresh(); toast('Failure recorded');
+}
+
+async function renderLinks() {
+  const ns = encodeURIComponent(state.ns);
+  const res = await api(`/causal-links?namespaces=${ns}&limit=1000`);
+  document.getElementById('content').innerHTML = table(
+    ['Cause fact', 'Effect fact', 'Conf.', 'Method', 'Created'],
+    res.items.map(l => `<tr>
+      <td>#${l.cause_fact_id}</td><td>#${l.effect_fact_id}</td>
+      <td>${(l.confidence * 100).toFixed(0)}%</td>
+      <td class="muted">${esc(l.method)}</td>
+      <td class="muted">${ts(l.created_at)}</td>
+    </tr>`));
+}
+
+async function renderNamespaces() {
+  const res = await api('/namespaces?limit=1000');
+  document.getElementById('content').innerHTML = toolbar(
+    `<button class="primary" onclick="nsDialog()">+ New namespace</button>`) +
+    table(['Slug', 'Name', 'Description', 'Created'],
+      res.map(n => `<tr>
+        <td>${esc(n.slug)}</td><td>${esc(n.name)}</td>
+        <td class="wrap muted">${esc(n.description)}</td>
+        <td class="muted">${ts(n.created_at)}</td>
+      </tr>`));
+}
+async function nsDialog() {
+  const d = document.getElementById('dlg');
+  d.innerHTML = `<h3>New namespace</h3>
+    <label>Slug (e.g. /work/projects)</label><input id="n-slug">
+    <label>Name</label><input id="n-name">
+    <label>Description</label><input id="n-desc">
+    <div class="actions"><button onclick="dlgClose()">Cancel</button><button class="primary" onclick="nsCreate()">Create</button></div>`;
+  d.showModal();
+}
+async function nsCreate() {
+  const slug = document.getElementById('n-slug').value.trim();
+  await api('/namespaces', { method: 'POST', body: JSON.stringify({
+    slug, name: document.getElementById('n-name').value,
+    description: document.getElementById('n-desc').value }) });
+  dlgClose(); await loadNamespaces(); refresh(); toast('Namespace created');
+}
+
+async function purge(kind, id) {
+  if (!confirm(`Purge ${kind.slice(0, -1)} #${id}? This cannot be undone.`)) return;
+  await api(`/${kind}/${id}`, { method: 'DELETE' }); refresh(); toast('Purged');
+}
+async function del(kind, id) {
+  if (!confirm(`Delete ${kind.slice(0, -1)} #${id}?`)) return;
+  await api(`/${kind}/${id}`, { method: 'DELETE' }); refresh(); toast('Deleted');
+}
+function dlgClose() { document.getElementById('dlg').close(); }
+
+const renderers = { overview: renderOverview, recall: renderRecall, facts: renderFacts,
+  goals: renderGoals, hypotheses: renderHypotheses, contradictions: renderContradictions,
+  failures: renderFailures, links: renderLinks, namespaces: renderNamespaces };
+
+async function refresh() {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
+  document.getElementById('ns-select').disabled = state.tab === 'namespaces';
+  const c = document.getElementById('content');
+  document.getElementById('loading').style.display = 'block';
+  try {
+    await loadNamespaces();
+    c.innerHTML = '';
+    await renderers[state.tab]();
+  } catch (e) {
+    c.innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+    toast(e.message, true);
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+refresh();
+</script>
+</body>
+</html>

@@ -60,6 +60,8 @@ After `docker compose up`, Stash exposes an MCP server over SSE at:
 http://localhost:8080/sse
 ```
 
+A web dashboard is also served at `http://localhost:9090/ui` — browse and manage memories, goals, hypotheses, contradictions, and failures from your browser.
+
 Point any MCP-compatible client at that URL. Example configs:
 
 **Cursor** — `~/.cursor/mcp.json`
