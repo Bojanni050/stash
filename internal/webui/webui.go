@@ -67,6 +67,14 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = enc.Encode(v)
 }
 
+// nonNil makes sure empty lists serialise as [] instead of null.
+func nonNil[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
+}
+
 func writeErr(w http.ResponseWriter, status int, err error) {
 	writeJSON(w, status, map[string]string{"error": err.Error()})
 }
@@ -274,7 +282,7 @@ func (h *Handler) namespaces(w http.ResponseWriter, r *http.Request) {
 		if !hdl(w, err) {
 			return
 		}
-		writeJSON(w, http.StatusOK, items)
+		writeJSON(w, http.StatusOK, nonNil(items))
 	case http.MethodPost:
 		var body struct {
 			Slug        string `json:"slug"`
@@ -323,7 +331,7 @@ func (h *Handler) goals(w http.ResponseWriter, r *http.Request) {
 		if !hdl(w, err) {
 			return
 		}
-		writeJSON(w, http.StatusOK, items)
+		writeJSON(w, http.StatusOK, nonNil(items))
 	case http.MethodPost:
 		var body struct {
 			Namespaces []string `json:"namespaces"`
@@ -413,7 +421,7 @@ func (h *Handler) hypotheses(w http.ResponseWriter, r *http.Request) {
 		if !hdl(w, err) {
 			return
 		}
-		writeJSON(w, http.StatusOK, items)
+		writeJSON(w, http.StatusOK, nonNil(items))
 	case http.MethodPost:
 		var body struct {
 			Namespaces       []string `json:"namespaces"`
@@ -518,7 +526,7 @@ func (h *Handler) contradictions(w http.ResponseWriter, r *http.Request) {
 	if !hdl(w, err) {
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	writeJSON(w, http.StatusOK, nonNil(items))
 }
 
 func (h *Handler) contradictionItem(w http.ResponseWriter, r *http.Request) {
@@ -558,7 +566,7 @@ func (h *Handler) failures(w http.ResponseWriter, r *http.Request) {
 		if !hdl(w, err) {
 			return
 		}
-		writeJSON(w, http.StatusOK, items)
+		writeJSON(w, http.StatusOK, nonNil(items))
 	case http.MethodPost:
 		var body struct {
 			Namespaces []string `json:"namespaces"`
@@ -625,7 +633,7 @@ func (h *Handler) causalLinks(w http.ResponseWriter, r *http.Request) {
 	if !hdl(w, err) {
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	writeJSON(w, http.StatusOK, nonNil(items))
 }
 
 func (h *Handler) causalLinkItem(w http.ResponseWriter, r *http.Request) {
@@ -653,7 +661,7 @@ func (h *Handler) causalLinkItem(w http.ResponseWriter, r *http.Request) {
 		if !hdl(w, err) {
 			return
 		}
-		writeJSON(w, http.StatusOK, items)
+		writeJSON(w, http.StatusOK, nonNil(items))
 	default:
 		writeErr(w, http.StatusNotFound, errors.New("not found"))
 	}
