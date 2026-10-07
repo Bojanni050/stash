@@ -20,6 +20,11 @@ type Config struct {
 	EmbeddingModel string `env:"STASH_EMBEDDING_MODEL,required"`
 	ReasonerModel  string `env:"STASH_REASONER_MODEL,required"`
 
+	// Optional overrides so embeddings can use a different endpoint (e.g. a local
+	// Ollama) than the reasoner. Fall back to the OpenAI settings above when empty.
+	EmbeddingBaseURL string `env:"STASH_EMBEDDING_BASE_URL"`
+	EmbeddingAPIKey  string `env:"STASH_EMBEDDING_API_KEY"`
+
 	// Memory
 	ContextTTL time.Duration `env:"STASH_CONTEXT_TTL,required"`
 

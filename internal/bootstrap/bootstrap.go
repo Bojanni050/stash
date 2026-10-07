@@ -141,9 +141,16 @@ func buildLogger(cfg *config.Config) *slog.Logger {
 }
 
 func buildEmbedder(cfg *config.Config) (embedder.Embedder, error) {
+	baseURL, apiKey := cfg.OpenAIBaseURL, cfg.OpenAIAPIKey
+	if cfg.EmbeddingBaseURL != "" {
+		baseURL = cfg.EmbeddingBaseURL
+	}
+	if cfg.EmbeddingAPIKey != "" {
+		apiKey = cfg.EmbeddingAPIKey
+	}
 	return embedder.NewOpenAI(
-		cfg.OpenAIBaseURL,
-		cfg.OpenAIAPIKey,
+		baseURL,
+		apiKey,
 		cfg.EmbeddingModel,
 		cfg.VectorDim,
 	)
