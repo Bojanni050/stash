@@ -1,0 +1,31 @@
+# Normalize line endings.
+# Text is stored as LF in the repository and checked out as LF everywhere,
+# which avoids CRLF churn on Windows checkouts (and keeps gofmt happy).
+* text=auto eol=lf
+
+# Explicitly force LF for source, config, docs and infra files.
+*.go         text eol=lf
+*.sql        text eol=lf
+*.tmpl       text eol=lf
+*.md         text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.json       text eol=lf
+Dockerfile   text eol=lf
+.env.example text eol=lf
+
+# Windows scripts keep CRLF, if any are added later.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets — never touch.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
+*.zip  binary
