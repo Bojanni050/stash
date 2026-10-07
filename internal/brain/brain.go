@@ -19,11 +19,11 @@ var (
 	ErrFactNotFound      = fmt.Errorf("brain: fact not found")
 	ErrEmptyContent      = fmt.Errorf("brain: content cannot be empty")
 	ErrContentTooLong    = fmt.Errorf("brain: content exceeds maximum length")
-	ErrInvalidPath = fmt.Errorf("brain: namespace path must start with / and contain valid segments (lowercase alphanumeric, hyphens, underscores)")
+	ErrInvalidPath       = fmt.Errorf("brain: namespace path must start with / and contain valid segments (lowercase alphanumeric, hyphens, underscores)")
 
-	pathSegmentRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
+	pathSegmentRe         = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
 	ErrNamespacesRequired = fmt.Errorf("brain: at least one namespace is required")
-	maxContentLen = 10000
+	maxContentLen         = 10000
 )
 
 const (
@@ -52,10 +52,10 @@ func (p Pagination) Sanitize() Pagination {
 }
 
 type Config struct {
-	BatchSize           int
-	SimilarityThreshold float64
-	DedupThreshold      float64
-	Window              time.Duration
+	BatchSize                      int
+	SimilarityThreshold            float64
+	DedupThreshold                 float64
+	Window                         time.Duration
 	DecayFactor                    float64
 	ExpiryThreshold                float32
 	HypothesisAutoConfirmThreshold float32

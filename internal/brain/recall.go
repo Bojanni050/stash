@@ -11,15 +11,15 @@ import (
 
 // RecallResult is a unified result from semantic search across episodes and facts.
 type RecallResult struct {
-	ID          int64     `json:"id"`
-	NamespaceID int64     `json:"namespace_id"`
-	Content     string    `json:"content"`
-	Confidence  float32   `json:"confidence,omitempty"`
-	Score       float32   `json:"score"`
-	Type        string    `json:"type"`
-	OccurredAt  string    `json:"occurred_at,omitempty"`
-	ValidFrom   string    `json:"valid_from,omitempty"`
-	CreatedAt   string    `json:"created_at"`
+	ID          int64   `json:"id"`
+	NamespaceID int64   `json:"namespace_id"`
+	Content     string  `json:"content"`
+	Confidence  float32 `json:"confidence,omitempty"`
+	Score       float32 `json:"score"`
+	Type        string  `json:"type"`
+	OccurredAt  string  `json:"occurred_at,omitempty"`
+	ValidFrom   string  `json:"valid_from,omitempty"`
+	CreatedAt   string  `json:"created_at"`
 }
 
 // Recall searches episodes and facts by semantic similarity across the given namespaces.

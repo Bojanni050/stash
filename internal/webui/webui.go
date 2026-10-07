@@ -416,11 +416,11 @@ func (h *Handler) hypotheses(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, items)
 	case http.MethodPost:
 		var body struct {
-			Namespaces        []string  `json:"namespaces"`
-			Content           string    `json:"content"`
-			VerificationPlan  string    `json:"verification_plan"`
-			Confidence        float32   `json:"confidence"`
-			SourceFactIDs     []int64   `json:"source_fact_ids"`
+			Namespaces       []string `json:"namespaces"`
+			Content          string   `json:"content"`
+			VerificationPlan string   `json:"verification_plan"`
+			Confidence       float32  `json:"confidence"`
+			SourceFactIDs    []int64  `json:"source_fact_ids"`
 		}
 		if err := readBody(r, &body); err != nil {
 			writeErr(w, http.StatusBadRequest, err)
