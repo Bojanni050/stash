@@ -821,8 +821,11 @@ func runConsolidationTicker(ctx context.Context, bc *bootstrap.Context, cmd *cli
 					log.Printf("Consolidation failed for namespace ID %d: %v", id, err)
 					continue
 				}
-				log.Printf("Consolidation completed for %s: facts=%d relationships=%d goals_annotated=%d failure_repeats=%d hypotheses_updated=%d",
-					result.Namespace, result.FactsCreated, result.RelationshipsFound, result.GoalsAnnotated, result.FailureRepeatsDetected, result.HypothesesUpdated)
+				log.Printf("Consolidation completed for %s: episodes_read=%d llm_calls=%d facts=%d relationships=%d goals_annotated=%d failure_repeats=%d hypotheses_updated=%d errors=%d",
+					result.Namespace, result.EpisodesRead, result.LLMCalls, result.FactsCreated, result.RelationshipsFound, result.GoalsAnnotated, result.FailureRepeatsDetected, result.HypothesesUpdated, len(result.Errors))
+				for _, e := range result.Errors {
+					log.Printf("Consolidation error in %s: %s", result.Namespace, e)
+				}
 			}
 		case <-ctx.Done():
 			log.Printf("Background consolidation shutting down")
