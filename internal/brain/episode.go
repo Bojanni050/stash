@@ -123,3 +123,31 @@ func (b *Brain) GetEpisode(ctx context.Context, episodeID int64) (*models.Episod
 	}
 	return &e, nil
 }
+
+// ListEpisodes returns the most recent episodes for the given namespaces, newest first.
+func (b *Brain) ListEpisodes(ctx context.Context, namespaceSlugs []string, page Pagination) ([]models.Episode, error) {
+	nsIDs, err := b.resolveNamespaceIDs(ctx, namespaceSlugs)
+	if err != nil {
+		return nil, err
+	}
+	page = page.Sanitize()
+	rows, err := b.pool.Query(ctx,
+		`SELECT id, namespace_id, content, embedding_model, occurred_at, created_at
+		 FROM episodes WHERE namespace_id = ANY($1) AND deleted_at IS NULL
+		 ORDER BY occurred_at DESC LIMIT $2 OFFSET $3`,
+		nsIDs, page.Limit, page.Offset)
+	if err != nil {
+		return nil, fmt.Errorf("list episodes: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.Episode
+	for rows.Next() {
+		var e models.Episode
+		if err := rows.Scan(&e.ID, &e.NamespaceID, &e.Content, &e.EmbeddingModel, &e.OccurredAt, &e.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan episode: %w", err)
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}

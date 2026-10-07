@@ -33,6 +33,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	api.HandleFunc("/api/v1/recall", h.recall)
 	api.HandleFunc("/api/v1/namespaces", h.namespaces)
 	api.HandleFunc("/api/v1/namespaces/", h.namespaceItem)
+	api.HandleFunc("/api/v1/episodes", h.episodes)
+	api.HandleFunc("/api/v1/episodes/", h.episodeItem)
 	api.HandleFunc("/api/v1/facts", h.facts)
 	api.HandleFunc("/api/v1/facts/", h.factItem)
 	api.HandleFunc("/api/v1/goals", h.goals)
@@ -193,6 +195,46 @@ func factToJSON(f models.Fact) factJSON {
 		Value: f.Value, ValidFrom: f.ValidFrom, ValidUntil: f.ValidUntil,
 		CreatedAt: f.CreatedAt, UpdatedAt: f.UpdatedAt,
 	}
+}
+
+type episodeJSON struct {
+	ID          int64     `json:"id"`
+	NamespaceID int64     `json:"namespace_id"`
+	Content     string    `json:"content"`
+	OccurredAt  time.Time `json:"occurred_at"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+func (h *Handler) episodes(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeErr(w, http.StatusMethodNotAllowed, errors.New("method not allowed"))
+		return
+	}
+	items, err := h.Brain.ListEpisodes(r.Context(), namespacesParam(r), pagination(r))
+	if !hdl(w, err) {
+		return
+	}
+	out := make([]episodeJSON, 0, len(items))
+	for _, e := range items {
+		out = append(out, episodeJSON{ID: e.ID, NamespaceID: e.NamespaceID, Content: e.Content, OccurredAt: e.OccurredAt, CreatedAt: e.CreatedAt})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) episodeItem(w http.ResponseWriter, r *http.Request) {
+	id, action, err := pathID(r)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+	if action != "" || r.Method != http.MethodDelete {
+		writeErr(w, http.StatusMethodNotAllowed, errors.New("method not allowed"))
+		return
+	}
+	if !hdl(w, h.Brain.PurgeEpisode(r.Context(), id)) {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "purged"})
 }
 
 func (h *Handler) facts(w http.ResponseWriter, r *http.Request) {
