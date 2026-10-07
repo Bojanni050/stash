@@ -119,14 +119,6 @@ func main() {
 				},
 			},
 			{
-				Name:   "forget",
-				Usage:  "Soft-delete a matching episode",
-				Action: forgetCmd,
-				Flags: []cli.Flag{
-					&cli.StringSliceFlag{Name: "namespaces", Aliases: []string{"n"}, Usage: "Namespace paths to search (each includes descendants)"},
-				},
-			},
-			{
 				Name:  "purge",
 				Usage: "Hard-delete by ID",
 				Commands: []*cli.Command{
@@ -135,14 +127,11 @@ func main() {
 						Usage:  "Hard-delete an episode by ID",
 						Action: purgeEpisodeCmd,
 					},
-		{
-			Name:   "forget",
-			Usage:  "Soft-delete a matching episode",
-			Action: forgetCmd,
-			Flags: []cli.Flag{
-				&cli.StringSliceFlag{Name: "namespaces", Aliases: []string{"n"}, Usage: "Namespace paths to search (each includes descendants)"},
-			},
-		},
+					{
+						Name:   "fact",
+						Usage:  "Hard-delete a fact by ID",
+						Action: purgeFactCmd,
+					},
 				},
 			},
 			{
