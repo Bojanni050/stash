@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Database
   postgres:
@@ -16,12 +14,13 @@ services:
       timeout: 5s
       retries: 5
 
-  # Stash MCP server + background consolidation
+  # Stash: MCP server + HTTP (dashboard + metrics) + background consolidation
   stash:
     build: .
-    command: ["mcp", "serve", "--host", "0.0.0.0", "--port", "8080", "--with-consolidation"]
+    command: ["serve", "--http-host", "0.0.0.0", "--http-port", "9090", "--mcp-host", "0.0.0.0", "--mcp-port", "8080"]
     ports:
-      - "8080:8080"
+      - "8080:8080" # MCP over SSE
+      - "9090:9090" # web dashboard at /ui, plus /metrics, /healthz, /readyz
     environment:
       # Required
       STASH_POSTGRES_DSN: postgresql://stash:stash_dev_password@postgres:5432/stash?sslmode=disable
