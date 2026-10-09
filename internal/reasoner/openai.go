@@ -11,6 +11,7 @@ import (
 	"github.com/alash3al/stash/internal/models"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
+	"github.com/openai/openai-go/shared"
 )
 
 const systemPrompt = `You are a strict information extraction engine.
@@ -28,11 +29,13 @@ Rules:
 const retryWarning = "Your previous response was invalid or contained invented information. Follow the rules strictly. Output ONLY valid JSON matching the provided schema."
 
 type OpenAI struct {
-	client openai.Client
-	model  string
+	client    openai.Client
+	model     string
+	maxTokens int
+	jsonMode  bool
 }
 
-func NewOpenAI(baseURL, apiKey, model string) (*OpenAI, error) {
+func NewOpenAI(baseURL, apiKey, model string, maxTokens int, jsonMode bool) (*OpenAI, error) {
 	if apiKey == "" {
 		return nil, errors.New("reasoner: apiKey is required")
 	}
@@ -46,9 +49,38 @@ func NewOpenAI(baseURL, apiKey, model string) (*OpenAI, error) {
 	)
 
 	return &OpenAI{
-		client: client,
-		model:  model,
+		client:    client,
+		model:     model,
+		maxTokens: maxTokens,
+		jsonMode:  jsonMode,
 	}, nil
+}
+
+// chat performs a single chat completion with the configured output constraints.
+// max_tokens is only sent when greater than zero, so "unlimited" truly omits the
+// field (sending 0 would request zero output). Native JSON output is requested
+// only when jsonMode is enabled, since provider/model support varies.
+func (o *OpenAI) chat(ctx context.Context, msgs []openai.ChatCompletionMessageParamUnion) (string, error) {
+	params := openai.ChatCompletionNewParams{
+		Model:    o.model,
+		Messages: msgs,
+	}
+	if o.maxTokens > 0 {
+		params.MaxTokens = openai.Int(int64(o.maxTokens))
+	}
+	if o.jsonMode {
+		rf := shared.NewResponseFormatJSONObjectParam()
+		params.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{OfJSONObject: &rf}
+	}
+
+	resp, err := o.client.Chat.Completions.New(ctx, params)
+	if err != nil {
+		return "", fmt.Errorf("chat.completions call failed: %w", err)
+	}
+	if len(resp.Choices) == 0 {
+		return "", errors.New("reasoner: no response from LLM")
+	}
+	return strings.TrimSpace(resp.Choices[0].Message.Content), nil
 }
 
 // --- JSON response types ---
@@ -153,18 +185,10 @@ GOOD example (specific and synthesized):
 	var valErr error
 
 	for attempt := 0; attempt < 2; attempt++ {
-		resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-			Model:    o.model,
-			Messages: msgs,
-		})
+		output, err := o.chat(ctx, msgs)
 		if err != nil {
-			return nil, fmt.Errorf("chat.completions call failed: %w", err)
+			return nil, err
 		}
-		if len(resp.Choices) == 0 {
-			return nil, errors.New("reasoner: no response from LLM")
-		}
-
-		output := strings.TrimSpace(resp.Choices[0].Message.Content)
 		raw := extractJSON(output)
 
 		var jf jsonFact
@@ -230,18 +254,10 @@ Rules:
 	var valErr error
 
 	for attempt := 0; attempt < 2; attempt++ {
-		resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-			Model:    o.model,
-			Messages: msgs,
-		})
+		output, err := o.chat(ctx, msgs)
 		if err != nil {
-			return nil, fmt.Errorf("chat.completions call failed: %w", err)
+			return nil, err
 		}
-		if len(resp.Choices) == 0 {
-			return nil, errors.New("reasoner: no response from LLM")
-		}
-
-		output := strings.TrimSpace(resp.Choices[0].Message.Content)
 		raw := extractJSON(output)
 
 		var jrels []jsonRelationship
@@ -347,18 +363,10 @@ Rules:
 	var valErr error
 
 	for attempt := 0; attempt < 2; attempt++ {
-		resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-			Model:    o.model,
-			Messages: msgs,
-		})
+		output, err := o.chat(ctx, msgs)
 		if err != nil {
-			return nil, fmt.Errorf("chat.completions call failed: %w", err)
+			return nil, err
 		}
-		if len(resp.Choices) == 0 {
-			return nil, errors.New("reasoner: no response from LLM")
-		}
-
-		output := strings.TrimSpace(resp.Choices[0].Message.Content)
 		raw := extractJSON(output)
 
 		var jpats []jsonPattern
@@ -449,18 +457,10 @@ Rules:
 	}
 
 	for attempt := 0; attempt < 2; attempt++ {
-		resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-			Model:    o.model,
-			Messages: msgs,
-		})
+		output, err := o.chat(ctx, msgs)
 		if err != nil {
-			return nil, fmt.Errorf("chat.completions call failed: %w", err)
+			return nil, err
 		}
-		if len(resp.Choices) == 0 {
-			return nil, errors.New("reasoner: no response from LLM")
-		}
-
-		output := strings.TrimSpace(resp.Choices[0].Message.Content)
 		raw := extractJSON(output)
 
 		var jc jsonContradiction
@@ -538,18 +538,10 @@ Rules:
 	var valErr error
 
 	for attempt := 0; attempt < 2; attempt++ {
-		resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-			Model:    o.model,
-			Messages: msgs,
-		})
+		output, err := o.chat(ctx, msgs)
 		if err != nil {
-			return nil, fmt.Errorf("chat.completions call failed: %w", err)
+			return nil, err
 		}
-		if len(resp.Choices) == 0 {
-			return nil, errors.New("reasoner: no response from LLM")
-		}
-
-		output := strings.TrimSpace(resp.Choices[0].Message.Content)
 		raw := extractJSON(output)
 
 		var jlinks []jsonCausalLink
@@ -655,18 +647,10 @@ Rules:
 	var valErr error
 
 	for attempt := 0; attempt < 2; attempt++ {
-		resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-			Model:    o.model,
-			Messages: msgs,
-		})
+		output, err := o.chat(ctx, msgs)
 		if err != nil {
-			return nil, fmt.Errorf("chat.completions call failed: %w", err)
+			return nil, err
 		}
-		if len(resp.Choices) == 0 {
-			return nil, errors.New("reasoner: no response from LLM")
-		}
-
-		output := strings.TrimSpace(resp.Choices[0].Message.Content)
 		raw := extractJSON(output)
 
 		var jassess []jsonGoalProgress
@@ -779,18 +763,10 @@ Rules for pattern extraction (higher-order):
 	var valErr error
 
 	for attempt := 0; attempt < 2; attempt++ {
-		resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-			Model:    o.model,
-			Messages: msgs,
-		})
+		output, err := o.chat(ctx, msgs)
 		if err != nil {
-			return nil, fmt.Errorf("chat.completions call failed: %w", err)
+			return nil, err
 		}
-		if len(resp.Choices) == 0 {
-			return nil, errors.New("reasoner: no response from LLM")
-		}
-
-		output := strings.TrimSpace(resp.Choices[0].Message.Content)
 		raw := extractJSON(output)
 
 		var jpatterns []jsonFailurePattern
@@ -921,18 +897,10 @@ Rules:
 	var valErr error
 
 	for attempt := 0; attempt < 2; attempt++ {
-		resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-			Model:    o.model,
-			Messages: msgs,
-		})
+		output, err := o.chat(ctx, msgs)
 		if err != nil {
-			return nil, fmt.Errorf("chat.completions call failed: %w", err)
+			return nil, err
 		}
-		if len(resp.Choices) == 0 {
-			return nil, errors.New("reasoner: no response from LLM")
-		}
-
-		output := strings.TrimSpace(resp.Choices[0].Message.Content)
 		raw := extractJSON(output)
 
 		var jevidence []jsonHypothesisEvidence

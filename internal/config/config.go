@@ -20,6 +20,13 @@ type Config struct {
 	EmbeddingModel string `env:"STASH_EMBEDDING_MODEL,required"`
 	ReasonerModel  string `env:"STASH_REASONER_MODEL,required"`
 
+	// Reasoner request tuning. MaxTokens caps output tokens per call (0 =
+	// unlimited); it guards against verbose/reasoning models burning output
+	// tokens during JSON extraction. JSONMode requests a native JSON response
+	// (response_format=json_object) where the provider/model supports it.
+	ReasonerMaxTokens int  `env:"STASH_REASONER_MAX_TOKENS" envDefault:"1024"`
+	ReasonerJSONMode  bool `env:"STASH_REASONER_JSON_MODE" envDefault:"false"`
+
 	// Optional overrides so embeddings can use a different endpoint (e.g. a local
 	// Ollama) than the reasoner. Fall back to the OpenAI settings above when empty.
 	EmbeddingBaseURL string `env:"STASH_EMBEDDING_BASE_URL"`

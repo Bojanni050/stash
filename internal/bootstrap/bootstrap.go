@@ -161,5 +161,7 @@ func buildReasoner(cfg *config.Config) (reasoner.Reasoner, error) {
 		cfg.OpenAIBaseURL,
 		cfg.OpenAIAPIKey,
 		cfg.ReasonerModel,
+		cfg.ReasonerMaxTokens,
+		cfg.ReasonerJSONMode,
 	)
 }
