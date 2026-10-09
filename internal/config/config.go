@@ -29,8 +29,11 @@ type Config struct {
 
 	// Optional overrides so embeddings can use a different endpoint (e.g. a local
 	// Ollama) than the reasoner. Fall back to the OpenAI settings above when empty.
-	EmbeddingBaseURL string `env:"STASH_EMBEDDING_BASE_URL"`
-	EmbeddingAPIKey  string `env:"STASH_EMBEDDING_API_KEY"`
+	// The `envDefault:""` is what keeps them optional: config parsing runs with
+	// RequiredIfNoDef, so a field with no default would otherwise be required —
+	// which is exactly what made Stash refuse to start without them.
+	EmbeddingBaseURL string `env:"STASH_EMBEDDING_BASE_URL" envDefault:""`
+	EmbeddingAPIKey  string `env:"STASH_EMBEDDING_API_KEY" envDefault:""`
 
 	// Memory
 	ContextTTL time.Duration `env:"STASH_CONTEXT_TTL,required"`
